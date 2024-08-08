@@ -1,60 +1,58 @@
-import React, { useState, useEffect, useRef } from 'react';
-import io from 'socket.io-client';
+// src/ChatRoom.js
+import React, { useEffect, useState } from 'react';
+import {Stomp} from '@stomp/stompjs';
+import SockJS from 'sockjs-client';
 
-const socket = io('http://localhost:8080/ws1'); // 替换成你的服务器地址
+const ChatRoom = () => {
+  const [stompClient, setStompClient] = useState(null);
+  const [message, setMessage] = useState('');
+  const [messages, setMessages] = useState([]);
 
-const Chat = () => {
-    const [message, setMessage] = useState('');
-    const [messages, setMessages] = useState([]);
-    const messagesEndRef = useRef(null);
+  useEffect(() => {
+    const socket = new SockJS('http://localhost:8080/ws'); // Ensure the WebSocket endpoint is correct
+    const client = Stomp.over(socket);
 
-    useEffect(() => {
-        socket.on('message', (msg) => {
-            setMessages((prevMessages) => [...prevMessages, msg]);
-        });
+    client.connect({}, (frame) => {
+      console.log('Connected: ' + frame);
+      client.subscribe('//127.0.0.1:8080/public/messages', (msg) => {
+        setMessages((prevMessages) => [...prevMessages, JSON.parse(msg.body)]);
+      });
+    });
 
-        return () => {
-            socket.off('message');
-        };
-    }, []);
+    setStompClient(client);
 
-    const sendMessage = () => {
-        if (message) {
-            socket.emit('message', message);
-            setMessage('');
-        }
+    return () => {
+      if (client) {
+        client.disconnect();
+      }
     };
+  }, []);
 
-    const handleKeyPress = (e) => {
-        if (e.key === 'Enter') {
-            sendMessage();
-        }
-    };
+  const sendMessage = () => {
+    if (stompClient && message.trim()) {
+      stompClient.send('//127.0.0.1:8080/chat/public/send', {}, JSON.stringify({ content: message }));
+      setMessage('');
+    }
+  };
 
-    useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages]);
-
-    return (
-        <div className="chat-container">
-            <div className="message-list">
-                {messages.map((msg, index) => (
-                    <div key={index} className="message">
-                        {msg}
-                    </div>
-                ))}
-                <div ref={messagesEndRef} />
-            </div>
-            <input
-                type="text"
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                onKeyDown={handleKeyPress}
-                placeholder="Type a message..."
-            />
-            <button onClick={sendMessage}>Send</button>
+  return (
+    <div>
+      <h2>Public Chat Room</h2>
+      <div>
+        <div>
+          {messages.map((msg, index) => (
+            <div key={index}>{msg.content}</div>
+          ))}
         </div>
-    );
+        <input
+          type="text"
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+        />
+        <button onClick={sendMessage}>Send</button>
+      </div>
+    </div>
+  );
 };
 
-export default Chat;
+export default ChatRoom;
