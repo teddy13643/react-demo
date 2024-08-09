@@ -1,58 +1,63 @@
-// src/ChatRoom.js
-import React, { useEffect, useState } from 'react';
-import {Stomp} from '@stomp/stompjs';
-import SockJS from 'sockjs-client';
+import React, { useState, useEffect, useRef } from 'react';
 
-const ChatRoom = () => {
-  const [stompClient, setStompClient] = useState(null);
-  const [message, setMessage] = useState('');
-  const [messages, setMessages] = useState([]);
+const ChatApp = () => {
+    const [messages, setMessages] = useState([]);
+    const [input, setInput] = useState('');
+    const ws = useRef(null);
 
-  useEffect(() => {
-    const socket = new SockJS('http://localhost:8080/ws'); // Ensure the WebSocket endpoint is correct
-    const client = Stomp.over(socket);
+    useEffect(() => {
+        // Create a new WebSocket connection when the component mounts
+        ws.current = new WebSocket('ws://localhost:8080/chat');
 
-    client.connect({}, (frame) => {
-      console.log('Connected: ' + frame);
-      client.subscribe('//127.0.0.1:8080/public/messages', (msg) => {
-        setMessages((prevMessages) => [...prevMessages, JSON.parse(msg.body)]);
-      });
-    });
+        ws.current.onopen = () => {
+            console.log('WebSocket connection opened');
+        };
 
-    setStompClient(client);
+        ws.current.onmessage = (event) => {
+            // Add received message to the list of messages
+            setMessages((prevMessages) => [...prevMessages, event.data]);
+        };
 
-    return () => {
-      if (client) {
-        client.disconnect();
-      }
+        ws.current.onclose = () => {
+            console.log('WebSocket connection closed');
+        };
+
+        // Clean up the WebSocket connection when the component unmounts
+        return () => {
+            ws.current.close();
+        };
+    }, []);
+
+    const handleInputChange = (e) => {
+        setInput(e.target.value);
     };
-  }, []);
 
-  const sendMessage = () => {
-    if (stompClient && message.trim()) {
-      stompClient.send('//127.0.0.1:8080/chat/public/send', {}, JSON.stringify({ content: message }));
-      setMessage('');
-    }
-  };
+    const handleSendMessage = () => {
+        if (input.trim() !== '') {
+            ws.current.send(input);
+            setInput('');
+        }
+    };
 
-  return (
-    <div>
-      <h2>Public Chat Room</h2>
-      <div>
+    return (
         <div>
-          {messages.map((msg, index) => (
-            <div key={index}>{msg.content}</div>
-          ))}
+            <div>
+                <h2>Chat</h2>
+                <div>
+                    {messages.map((msg, index) => (
+                        <div key={index}>{msg}</div>
+                    ))}
+                </div>
+            </div>
+            <input
+                type="text"
+                value={input}
+                onChange={handleInputChange}
+                placeholder="Type a message..."
+            />
+            <button onClick={handleSendMessage}>Send</button>
         </div>
-        <input
-          type="text"
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-        />
-        <button onClick={sendMessage}>Send</button>
-      </div>
-    </div>
-  );
+    );
 };
 
-export default ChatRoom;
+export default ChatApp;
