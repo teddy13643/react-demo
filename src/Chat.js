@@ -7,7 +7,7 @@ const ChatApp = () => {
 
     useEffect(() => {
         // Create a new WebSocket connection when the component mounts
-        ws.current = new WebSocket('ws://localhost:8080/chat');
+        ws.current = new WebSocket('ws://localhost:8080/chat/1');
 
         ws.current.onopen = () => {
             console.log('WebSocket connection opened');
@@ -40,9 +40,8 @@ const ChatApp = () => {
     };
 
     return (
-        <div>
+        <div className="centered-container">
             <div>
-                <h2>Chat</h2>
                 <div>
                     {messages.map((msg, index) => (
                         <div key={index}>{msg}</div>

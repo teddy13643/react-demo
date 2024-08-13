@@ -2,8 +2,8 @@
 
 function Hello() {
   return (
-    <div>
-      <h2>Hello.js</h2>
+    <div className="centered-container">
+      <h2>Hello</h2>
     </div>
   );
 }
